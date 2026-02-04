@@ -58,30 +58,27 @@ window.addEventListener('DOMContentLoaded', () => {
     // Validate configuration first
     validateConfig();
 
-    // Set texts from config
-    document.getElementById('valentineTitle').textContent = `${config.valentineName}, my love...`;
-    
-    // Set first question texts
-    document.getElementById('question1Text').textContent = config.questions.first.text;
-    document.getElementById('yesBtn1').textContent = config.questions.first.yesBtn;
-    document.getElementById('noBtn1').textContent = config.questions.first.noBtn;
-    document.getElementById('secretAnswerBtn').textContent = config.questions.first.secretAnswer;
-    
-    // Set second question texts
-    document.getElementById('question2Text').textContent = config.questions.second.text;
-    document.getElementById('startText').textContent = config.questions.second.startText;
-    document.getElementById('nextBtn').textContent = config.questions.second.nextBtn;
-    
-    // Set third question texts
-    document.getElementById('question3Text').textContent = config.questions.third.text;
-    document.getElementById('yesBtn3').textContent = config.questions.third.yesBtn;
-    document.getElementById('noBtn3').textContent = config.questions.third.noBtn;
+    // Set the main title (the single question)
+    const titleEl = document.getElementById('valentineTitle');
+    if (titleEl) titleEl.textContent = `${config.valentineName}, Will you be my Valentine..`;
 
-    // Create initial floating elements
+    // Main question
+    const q1Text = document.getElementById('question1Text');
+    const yesBtn1 = document.getElementById('yesBtn1');
+    const noBtn1 = document.getElementById('noBtn1');
+    if (q1Text && config.questions && config.questions.first) {
+        q1Text.textContent = config.questions.first.text;
+    }
+    if (yesBtn1) yesBtn1.textContent = (config.questions && config.questions.first && config.questions.first.yesBtn) || 'Yes!';
+    if (noBtn1) noBtn1.textContent = (config.questions && config.questions.first && config.questions.first.noBtn) || 'No';
+
+    // Create floating elements and music (keep these for polish)
     createFloatingElements();
-
-    // Setup music player
     setupMusicPlayer();
+
+    // Wire buttons: Yes -> celebrate, No -> evasive + confirm
+    if (yesBtn1) yesBtn1.addEventListener('click', celebrate);
+    if (noBtn1) makeNoEvasive(noBtn1);
 });
 
 // Create floating hearts and bears
@@ -114,64 +111,158 @@ function setRandomPosition(element) {
     element.style.animationDuration = 10 + Math.random() * 20 + 's';
 }
 
-// Function to show next question
-function showNextQuestion(questionNumber) {
-    document.querySelectorAll('.question-section').forEach(q => q.classList.add('hidden'));
-    document.getElementById(`question${questionNumber}`).classList.remove('hidden');
-}
+// (No multi-question flow anymore — single-question site)
 
 // Function to move the "No" button when clicked
-function moveButton(button) {
-    const x = Math.random() * (window.innerWidth - button.offsetWidth);
-    const y = Math.random() * (window.innerHeight - button.offsetHeight);
+// Move a button to a random location within the viewport (keeps it visible)
+function moveButtonRandom(button, extraMargin = 20) {
+    const bw = button.offsetWidth;
+    const bh = button.offsetHeight;
+    const maxX = Math.max(window.innerWidth - bw - extraMargin, extraMargin);
+    const maxY = Math.max(window.innerHeight - bh - extraMargin, extraMargin);
+    const x = extraMargin + Math.random() * (maxX - extraMargin);
+    const y = extraMargin + Math.random() * (maxY - extraMargin);
     button.style.position = 'fixed';
     button.style.left = x + 'px';
     button.style.top = y + 'px';
 }
 
-// Love meter functionality
+// Make a NO button evasive: moves on mouseenter and opens confirm dialog on click
+function makeNoEvasive(button) {
+    // Track how many times it's been forcibly confirmed
+    button.dataset.noCount = button.dataset.noCount || 0;
+
+    // On hover, jump away
+    button.addEventListener('mouseenter', () => {
+        // increase eagerness slightly each time
+        const count = parseInt(button.dataset.noCount || '0', 10);
+        const extra = Math.min(200 + count * 40, 500);
+        moveButtonRandom(button, extra);
+    });
+
+    // On click, show a confirm modal
+    button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showConfirm('Are you sure?', () => {
+            // If user confirms "Yes" to the question 'Are you sure you want to say No?', close
+            hideConfirm();
+        }, () => {
+            // If user presses No in the confirm (meaning they confirm the "No" choice), show heartbreak
+            // Increase evasiveness counter
+            button.dataset.noCount = (parseInt(button.dataset.noCount || '0', 10) + 1).toString();
+            showHeartbreak(() => hideConfirm());
+        });
+    });
+}
+
+// Show a simple heartbreak message in the confirm modal area
+function showHeartbreak(onClose) {
+    const modal = document.getElementById('confirmModal');
+    const msg = document.getElementById('confirmMessage');
+    const yes = document.getElementById('confirmYes');
+    const no = document.getElementById('confirmNo');
+
+    msg.textContent = "Ohh... you are breaking my heart 💔";
+    yes.classList.add('hidden');
+    no.textContent = 'Okay';
+    // replace handlers so clicking Okay closes the modal
+    const clear = () => {
+        yes.classList.remove('hidden');
+        no.textContent = 'No';
+        if (onClose) onClose();
+    };
+
+    const onOk = () => {
+        no.removeEventListener('click', onOk);
+        clear();
+    };
+
+    no.addEventListener('click', onOk);
+    modal.classList.remove('hidden');
+}
+
+// Show confirm modal with callbacks for Yes and No
+function showConfirm(message, onYes, onNo) {
+    const modal = document.getElementById('confirmModal');
+    const msg = document.getElementById('confirmMessage');
+    const yes = document.getElementById('confirmYes');
+    const no = document.getElementById('confirmNo');
+
+    // Clean previous handlers
+    yes.replaceWith(yes.cloneNode(true));
+    no.replaceWith(no.cloneNode(true));
+
+    const newYes = document.getElementById('confirmYes');
+    const newNo = document.getElementById('confirmNo');
+
+    msg.textContent = message;
+    newYes.textContent = 'Yes';
+    newNo.textContent = 'No';
+
+    newYes.addEventListener('click', () => {
+        if (onYes) onYes();
+        hideConfirm();
+    });
+
+    newNo.addEventListener('click', () => {
+        if (onNo) onNo();
+    });
+
+    modal.classList.remove('hidden');
+}
+
+function hideConfirm() {
+    const modal = document.getElementById('confirmModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+// Love meter functionality (guarded in case the element is not present)
 const loveMeter = document.getElementById('loveMeter');
 const loveValue = document.getElementById('loveValue');
 const extraLove = document.getElementById('extraLove');
 
 function setInitialPosition() {
+    if (!loveMeter || !loveValue) return;
     loveMeter.value = 100;
     loveValue.textContent = 100;
     loveMeter.style.width = '100%';
 }
 
-loveMeter.addEventListener('input', () => {
-    const value = parseInt(loveMeter.value);
-    loveValue.textContent = value;
-    
-    if (value > 100) {
-        extraLove.classList.remove('hidden');
-        const overflowPercentage = (value - 100) / 9900;
-        const extraWidth = overflowPercentage * window.innerWidth * 0.8;
-        loveMeter.style.width = `calc(100% + ${extraWidth}px)`;
-        loveMeter.style.transition = 'width 0.3s';
+if (loveMeter && loveValue && extraLove) {
+    loveMeter.addEventListener('input', () => {
+        const value = parseInt(loveMeter.value);
+        loveValue.textContent = value;
         
-        // Show different messages based on the value
-        if (value >= 5000) {
-            extraLove.classList.add('super-love');
-            extraLove.textContent = config.loveMessages.extreme;
-        } else if (value > 1000) {
-            extraLove.classList.remove('super-love');
-            extraLove.textContent = config.loveMessages.high;
+        if (value > 100) {
+            extraLove.classList.remove('hidden');
+            const overflowPercentage = (value - 100) / 9900;
+            const extraWidth = overflowPercentage * window.innerWidth * 0.8;
+            loveMeter.style.width = `calc(100% + ${extraWidth}px)`;
+            loveMeter.style.transition = 'width 0.3s';
+            
+            // Show different messages based on the value
+            if (value >= 5000) {
+                extraLove.classList.add('super-love');
+                extraLove.textContent = config.loveMessages.extreme;
+            } else if (value > 1000) {
+                extraLove.classList.remove('super-love');
+                extraLove.textContent = config.loveMessages.high;
+            } else {
+                extraLove.classList.remove('super-love');
+                extraLove.textContent = config.loveMessages.normal;
+            }
         } else {
+            extraLove.classList.add('hidden');
             extraLove.classList.remove('super-love');
-            extraLove.textContent = config.loveMessages.normal;
+            loveMeter.style.width = '100%';
         }
-    } else {
-        extraLove.classList.add('hidden');
-        extraLove.classList.remove('super-love');
-        loveMeter.style.width = '100%';
-    }
-});
+    });
 
-// Initialize love meter
-window.addEventListener('DOMContentLoaded', setInitialPosition);
-window.addEventListener('load', setInitialPosition);
+    // Initialize love meter
+    window.addEventListener('DOMContentLoaded', setInitialPosition);
+    window.addEventListener('load', setInitialPosition);
+}
 
 // Celebration function
 function celebrate() {

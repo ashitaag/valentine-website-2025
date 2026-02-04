@@ -316,3 +316,42 @@ h2 {
     transform: scale(1.05);
     background: var(--secondary-color);
 } 
+
+/* Modal styles for confirmation dialogs */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    /* Hidden by default; shown when the 'hidden' class is removed */
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    z-index: 2000;
+    pointer-events: auto;
+}
+
+/* Show modal when it does NOT have the hidden class */
+.modal-overlay:not(.hidden) {
+    display: flex;
+}
+
+.modal {
+    background: white;
+    padding: 20px 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    text-align: center;
+    max-width: 90%;
+}
+
+.modal p {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
